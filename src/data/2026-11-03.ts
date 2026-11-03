@@ -5,12 +5,12 @@ import type { Election, Race } from "./types";
 const races: Race[] = [
   {
     id: "issue-3", title: "State Issue 3: photo ID to vote", group: "Issues", district: "oh", scope: "statewide", kind: "issue",
-    contestPatterns: ["issue\\s*(no\\.?\\s*)?3\\b|photo|identification"], guideAnchor: "issues",
+    contestPatterns: ["^\\s*#\\s*3\\b|state of oh.*constitutional|issue\\s*3\\b"], guideAnchor: "issues",
     summary: "Constitutional amendment requiring approved photo ID to vote. Yes adds it to the Ohio Constitution.",
   },
   {
     id: "issue-38", title: "Issue 38: Twinsburg rezoning of 2570 Post Road", group: "Issues", district: "oh-summit-twinsburg", scope: "city", kind: "issue",
-    contestPatterns: ["twinsburg", "zon|issue\\s*(no\\.?\\s*)?38\\b|2026-093|post"], guideAnchor: "issues",
+    contestPatterns: ["twinsburg(?!\\s*tw)", "zon|^\\s*#\\s*38\\b"], guideAnchor: "issues",
     summary: "Rezones 3.2 acres from Public Facilities to R-3 single-family residential. Not a tax.",
   },
   {

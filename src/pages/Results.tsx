@@ -52,19 +52,21 @@ function partyClass(p?: string) {
   return "party-o";
 }
 const partyAbbr = (p?: string) => {
-  const s = (p || "").toLowerCase();
-  if (s.startsWith("rep")) return "R";
-  if (s.startsWith("dem")) return "D";
-  if (s.startsWith("lib")) return "L";
-  if (!s) return "";
-  return p!.length <= 5 ? p! : p!.slice(0, 3);
+  const s = (p || "").toLowerCase().trim();
+  if (!s || s.startsWith("nonpartisan")) return "";
+  if (s.startsWith("rep") || s === "r") return "R";
+  if (s.startsWith("dem") || s === "d") return "D";
+  if (s.startsWith("lib") || s === "l") return "L";
+  if (s.startsWith("nonparty") || s.startsWith("ind")) return "Ind.";
+  if (s.startsWith("other")) return "Other";
+  return p!.length <= 6 ? p! : p!.slice(0, 5);
 };
 
 function Bars({ options, votes, voteFor, race, contest, final }: {
   options: ROption[]; votes: (o: ROption) => number; voteFor: number; race?: Race; contest: RContest; final: boolean;
 }) {
   const total = options.reduce((s, o) => s + votes(o), 0);
-  const ranked = [...options].sort((a, b) => votes(b) - votes(a));
+  const ranked = [...options].filter((o) => !(/^write-?in/i.test(o.name) && votes(o) === 0)).sort((a, b) => votes(b) - votes(a));
   const top = new Set(total > 0 ? ranked.slice(0, voteFor).map((o) => o.id) : []);
   // Don't mark a leader when tied at the cutoff.
   if (total > 0 && ranked.length > voteFor && votes(ranked[voteFor - 1]) === votes(ranked[voteFor])) top.clear();
@@ -75,7 +77,7 @@ function Bars({ options, votes, voteFor, race, contest, final }: {
         const pct = total ? (100 * v) / total : 0;
         const cand = race ? candidateForOption(race, contest, o) : undefined;
         const party = o.party || cand?.party || "";
-        const ab = partyAbbr(party) || (cand?.party ?? "");
+        const ab = partyAbbr(party) || partyAbbr(cand?.party);
         return (
           <div key={o.id} className={"bar-row" + (top.has(o.id) ? " leading" : "")}>
             <div className="bar-label">
@@ -101,13 +103,12 @@ function titleCase(s: string) {
   return s.toLowerCase().replace(/\b([a-z])/g, (m) => m.toUpperCase()).replace(/\bMc([a-z])/g, (_m, c) => "Mc" + c.toUpperCase());
 }
 
-function ContestCard({ race, contest, locality, title }: { race?: Race; contest: RContest; locality?: Locality; title?: string }) {
+function ContestCard({ race, contest, locality, title, showLocal = false }: { race?: Race; contest: RContest; locality?: Locality; title?: string; showLocal?: boolean }) {
   const loc = locality?.resultsLocality ? contest.local?.[locality.resultsLocality] : undefined;
   const countyDone = contest.precinctsParticipating > 0 && contest.precinctsReporting >= contest.precinctsParticipating;
   const scope = race?.scope;
   const canCall = scope === "county" || scope === "city";
   const finalCounty = canCall && countyDone;
-  const [showLocal, setShowLocal] = useState(true);
   return (
     <div className="card contest">
       <div className="contest-head">
@@ -115,18 +116,12 @@ function ContestCard({ race, contest, locality, title }: { race?: Race; contest:
         {race?.guideAnchor && <a className="small" href={`#/guide?s=${race.guideAnchor}`}>About this race</a>}
       </div>
       {scope && <div className={"scope-note scope-" + scope}>{SCOPE_NOTE[scope]}</div>}
-      {loc && (
-        <div className="tabs">
-          <button className={showLocal ? "on" : ""} onClick={() => setShowLocal(true)}>{locality!.label}</button>
-          <button className={!showLocal ? "on" : ""} onClick={() => setShowLocal(false)}>All of Summit County</button>
-        </div>
-      )}
       {loc && showLocal ? (
         <>
           <div className="reporting">{locality!.label} precincts: {loc.reported} of {loc.precincts} reporting{loc.complete < loc.precincts && loc.reported > 0 ? ` (${loc.complete} complete)` : ""}</div>
           <Bars options={contest.options} votes={(o) => loc.votes[o.id] || 0} voteFor={contest.voteFor} race={race} contest={contest}
             final={scope === "city" && loc.precincts > 0 && loc.complete >= loc.precincts && countyDone} />
-          {scope !== "city" && <div className="muted small">Twinsburg precincts only. Absentee ballots may be counted under separate absentee precincts, depending on how the county reports them.</div>}
+          <div className="muted small">Votes from Twinsburg's {loc.precincts} city precincts, including mail and early ballots cast by city voters.</div>
         </>
       ) : (
         <>
@@ -158,8 +153,8 @@ function Status({ data, loadedAt, error }: { data: RLatest | null; loadedAt: Dat
       <div className="status-line">
         <span className={"dot" + (now >= closeAt && !allIn ? " pulse" : "")} />
         <strong>{now < closeAt ? "Before polls close" : allIn ? "Election night count complete" : "Live: unofficial results"}</strong>
-        {reporting && <span className="muted"> · {reporting}</span>}
       </div>
+      {reporting && <div className="muted small">{reporting}</div>}
       <p>{phase}</p>
       <div className="small muted">
         County data updated {when(src?.sourceUpdatedAt)} · Checked {when(data?.checkedAt)} · Page refreshed {loadedAt ? timeFmt.format(loadedAt) : "—"} ET
@@ -176,6 +171,7 @@ export default function Results() {
   const locality = election.localities[0];
   const [view, setView] = useState<"ballot" | "all">("ballot");
   const [q, setQ] = useState("");
+  const [local, setLocal] = useState(true);
   const contests = data?.sources?.summit?.contests || [];
 
   const matched = useMemo(() => {
@@ -207,13 +203,20 @@ export default function Results() {
               Results will appear here automatically once the Summit County Board of Elections publishes its first update after polls close. This page checks every minute.
             </div>
           )}
+          {contests.length > 0 && (
+            <div className="seg">
+              <span className="small muted">Show votes from:</span>
+              <button className={local ? "on" : ""} onClick={() => setLocal(true)}>{locality.label}</button>
+              <button className={!local ? "on" : ""} onClick={() => setLocal(false)}>All of Summit County</button>
+            </div>
+          )}
           {contests.length > 0 && groups.map((g) => {
             const items = matched.filter((m) => m.race.group === g && m.contest);
             if (!items.length) return null;
             return (
               <section key={g}>
                 <h2>{g}</h2>
-                {items.map(({ race, contest }) => <ContestCard key={race.id} race={race} contest={contest!} locality={locality} />)}
+                {items.map(({ race, contest }) => <ContestCard key={race.id} race={race} contest={contest!} locality={locality} showLocal={local} />)}
               </section>
             );
           })}
