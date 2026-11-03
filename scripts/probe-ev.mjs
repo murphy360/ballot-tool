@@ -2,22 +2,35 @@
 const UA = "ballot-tool probe (github.com/murphy360/ballot-tool)";
 const get = async (u) => {
   try {
-    const r = await fetch(u, { headers: { "User-Agent": UA, Accept: "application/json" }, signal: AbortSignal.timeout(30000) });
+    const r = await fetch(u, { headers: { "User-Agent": UA, Accept: "application/json" }, signal: AbortSignal.timeout(60000) });
     return { status: r.status, type: r.headers.get("content-type"), text: await r.text() };
   } catch (e) { return { status: 0, text: String(e) }; }
 };
 const base = "https://app.enhancedvoting.com";
 const api = base + "/results/public/api";
-const js = (await get(base + "/results/public/main-SDUQU7SI.js")).text;
-for (const m of js.matchAll(/.{0,100}(jurisdiction|Jurisdiction)[^]{0,0}.{0,100}\$\{[^}]+\}.{0,80}/g)) if (/baseUrl|http\.get/.test(m[0])) console.log("JUR CTX: " + m[0]);
-for (const m of js.matchAll(/http\.get\(`[^`]+`/g)) console.log("GET: " + m[0]);
-
-const may = await get(`${api}/elections/summit-county-oh/May2026Primary`);
-console.log("\n### summit May2026Primary:", may.status, "\n" + may.text.slice(0, 4000));
-const slugs = ["Nov2026General","November2026General","Nov2026GeneralElection","November2026GeneralElection","Nov2026Gen","Nov2026","November2026","General2026","Nov2026GE","GE2026","2026General","Nov32026General","NovGeneral2026","2026NovGeneral","Nov2026General1","November2026","Nov2026Election","General","Nov262026General"];
-for (const s of slugs) {
-  const r = await get(`${api}/elections/summit-county-oh/${s}`);
-  console.log(`summit-county-oh/${s}: ${r.status} ${r.status === 200 ? r.text.slice(0, 3000) : ""}`);
+for (const e of ["May2026Primary", "Nov2026General"]) {
+  const r = await get(`${api}/elections/summit-county-oh/${e}`);
+  let j = {}; try { j = JSON.parse(r.text); } catch {}
+  console.log(`\n### ${e} election keys:`, Object.keys(j));
+  for (const k of Object.keys(j)) if (!["publicReportCategories"].includes(k)) console.log(`  ${k}: ${JSON.stringify(j[k]).slice(0, 600)}`);
+  for (const u of [
+    `${base}/cdn/results/summit-county-oh/export-${e}.json`,
+    `${base}/cdn/results/Summit-County-OH/export-${e}.json`,
+    `${base}/cdn/results/summit-county-oh/elections/export-${e}.json`,
+  ]) {
+    const x = await get(u);
+    console.log(`EXPORT ${u}: ${x.status} ${x.text.length} bytes ${x.text.slice(0, 300)}`);
+    if (x.status === 200) {
+      try {
+        const d = JSON.parse(x.text);
+        console.log("  top keys", Object.keys(d), "results keys", Object.keys(d.results || {}));
+        const items = [...(d.results?.ballotItems || []), ...((d.localResults || []).flatMap((l) => l.ballotItems || []))];
+        console.log("  items", items.length, "localResults", (d.localResults || []).map((l) => l.name));
+        const pn = new Set(); for (const bi of items) for (const o of bi.ballotOptions || []) for (const p of o.precinctResults || []) pn.add(p.name);
+        console.log("  precincts", pn.size, [...pn].filter((n) => /twins/i.test(n)));
+        console.log("  sample item", JSON.stringify(items[0]).slice(0, 1500));
+        console.log("  names", items.slice(0, 60).map((i) => i.name).join(" | "));
+      } catch (e) { console.log("parse fail", e.message); }
+    }
+  }
 }
-const cuy = await get(`${api}/elections/Cuyahoga-County-OH/GE2026`);
-console.log("\n### cuy full:\n" + cuy.text.slice(0, 6000));
