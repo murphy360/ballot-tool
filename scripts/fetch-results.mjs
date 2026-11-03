@@ -124,6 +124,25 @@ function normalize(data, source, localities) {
   };
 }
 
+async function fetchStatus(source) {
+  if (!source.statusUrl) return null;
+  try {
+    const j = await fetchJson(source.statusUrl);
+    return {
+      isOfficialResults: !!j.isOfficialResults,
+      asOf: j.asOf || null,
+      nextUpdateAt: j.nextUpdateAt || null,
+      ballotsCast: j.ballotsCast ?? null,
+      totalVoters: j.totalVoters ?? null,
+      precinctReportingStatus: (j.precinctReportingStatus || []).map((s) => ({
+        status: s.groupName?.[0]?.text || s.reportingStatusClientTextKey, count: s.value,
+      })),
+    };
+  } catch (e) {
+    return { error: String(e.message || e).slice(0, 200) };
+  }
+}
+
 async function runSource(source, prevDebug) {
   const tried = [];
   // Try the last URL that worked first.
@@ -159,6 +178,7 @@ const latest = {
 let changed = false;
 for (const source of config.sources) {
   const { url, data, tried } = await runSource(source, prevDebug);
+  const status = await fetchStatus(source);
   const dbg = { workingUrl: url, tried };
   if (data) {
     const norm = normalize(data, source, config.localities || []);
@@ -173,16 +193,19 @@ for (const source of config.sources) {
       label: source.label,
       publicUrl: source.publicUrl,
       ...norm.meta,
+      status: status && !status.error ? status : prev?.status ?? null,
       fetchedAt: now,
       contests: norm.contests,
     };
     const sig = (s) => JSON.stringify(s?.contests || []);
-    if (!prev || sig(prev) !== sig(next) || prev.sourceUpdatedAt !== next.sourceUpdatedAt) {
+    const ssig = (s) => JSON.stringify([s?.status?.isOfficialResults, s?.status?.ballotsCast, s?.status?.precinctReportingStatus]);
+    if (!prev || sig(prev) !== sig(next) || prev.sourceUpdatedAt !== next.sourceUpdatedAt || ssig(prev) !== ssig(next)) {
       latest.sources[source.id] = next;
       latest.updatedAt = now;
       changed = true;
     } else {
       prev.fetchedAt = now;
+      delete prev.lastError;
     }
   } else {
     dbg.error = "No working results URL";

@@ -1,0 +1,45 @@
+name: Deploy site
+
+# Builds the site and publishes it to the gh-pages branch. Existing files on
+# gh-pages are kept (keep_files), so the results/ folder written by the
+# "Fetch results" workflow survives each deploy.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "index.html"
+      - "package.json"
+      - "package-lock.json"
+      - "vite.config.ts"
+      - "tsconfig.json"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: deploy-site
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: touch dist/.nojekyll
+      - uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: ./dist
+          keep_files: true
+          commit_message: "Deploy site"

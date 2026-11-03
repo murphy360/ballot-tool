@@ -42,3 +42,6 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+# Local results fetched for development (live copies are on gh-pages)
+public/results/

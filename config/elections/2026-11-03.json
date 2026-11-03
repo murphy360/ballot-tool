@@ -2,32 +2,35 @@
   "id": "2026-11-03",
   "name": "November 3, 2026 General Election",
   "pollsClose": "2026-11-04T00:30:00Z",
-  "liveWindow": { "start": "2026-11-03T23:00:00Z", "end": "2026-11-04T12:00:00Z" },
+  "liveWindow": {
+    "start": "2026-11-03T23:00:00Z",
+    "end": "2026-11-04T12:00:00Z"
+  },
   "sources": [
     {
       "id": "summit",
       "type": "enhancedvoting",
       "label": "Summit County Board of Elections",
-      "publicUrl": "https://app.enhancedvoting.com/results/public/Summit-County-OH/GE2026",
+      "publicUrl": "https://app.enhancedvoting.com/results/public/summit-county-oh/elections/Nov2026General",
       "jsonUrls": [
-        "https://app.enhancedvoting.com/cdn/results/Summit-County-OH/export-GE2026.json",
-        "https://app.enhancedvoting.com/cdn/results/Summit-County-OH/export-GE112026.json",
-        "https://app.enhancedvoting.com/cdn/results/Summit-County-OH/export-General2026.json",
-        "https://app.enhancedvoting.com/cdn/results/Summit-County-OH/export-11032026GeneralElection.json",
-        "https://app.enhancedvoting.com/cdn/results/Summit-County-OH/export-GE11032026.json",
-        "https://app.enhancedvoting.com/cdn/results/Summit-OH/export-GE2026.json"
-      ]
+        "https://app.enhancedvoting.com/cdn/results/summit-county-oh/export-Nov2026General.json"
+      ],
+      "statusUrl": "https://app.enhancedvoting.com/results/public/api/elections/summit-county-oh/Nov2026General"
     }
   ],
   "localities": [
     {
       "id": "twinsburg",
       "label": "City of Twinsburg",
-      "precinctPattern": "^\\s*TWINSBURG(?!\\s*(TWP|TOWNSHIP))",
-      "precinctFlags": "i"
+      "precinctPattern": "^\\s*\\d*\\s*TWINSBURG\\s+\\d+-[A-Z]\\b",
+      "precinctFlags": "i",
+      "note": "City precincts are named like '283 TWINSBURG 1-A'; Twinsburg Township is 'TWINSBURG TWP A' and is excluded."
     }
   ],
   "statewideLinks": [
-    { "label": "Ohio Secretary of State live results (statewide totals)", "href": "https://liveresults.ohiosos.gov/" }
+    {
+      "label": "Ohio Secretary of State live results (statewide totals)",
+      "href": "https://liveresults.ohiosos.gov/"
+    }
   ]
 }
