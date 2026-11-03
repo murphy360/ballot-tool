@@ -1,0 +1,96 @@
+name: Fetch results
+
+# Pulls official unofficial/final results and commits them to the gh-pages
+# branch under results/. During the election-night window each run loops for
+# ~50 minutes, checking about once a minute; outside it, each run checks once.
+
+on:
+  schedule:
+    # Every 5 minutes from 6 PM to 7 AM Eastern on election night (UTC hours).
+    - cron: "*/5 22,23,0-11 * * *"
+    # Hourly otherwise, to pick up late counts and the official canvass.
+    - cron: "41 * * * *"
+  workflow_dispatch:
+    inputs:
+      loop_minutes:
+        description: "Minutes to keep polling (0 = once)"
+        required: false
+        default: "0"
+  push:
+    branches: [main]
+    paths:
+      - "scripts/fetch-results.mjs"
+      - "config/elections/**"
+      - ".github/workflows/results.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: fetch-results
+  cancel-in-progress: false
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 58
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check out gh-pages
+        env:
+          TOKEN: ${{ github.token }}
+        run: |
+          git config --global user.name "ballot-tool results bot"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          URL="https://x-access-token:${TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git clone --depth 1 --branch gh-pages "$URL" site; then
+            echo "cloned gh-pages"
+          else
+            mkdir site && cd site && git init -b gh-pages && git remote add origin "$URL"
+            touch .nojekyll && git add .nojekyll && git commit -m "Start gh-pages"
+          fi
+
+      - name: Fetch results
+        env:
+          LOOP_MINUTES: ${{ github.event.inputs.loop_minutes }}
+        run: |
+          CONFIG=config/elections/2026-11-03.json
+          START=$(node -e "console.log(Date.parse(require('./$CONFIG').liveWindow.start)/1000|0)")
+          END=$(node -e "console.log(Date.parse(require('./$CONFIG').liveWindow.end)/1000|0)")
+          NOW=$(date +%s)
+          MINUTES=${LOOP_MINUTES:-0}
+          if [ "$MINUTES" = "0" ] && [ "$NOW" -ge "$START" ] && [ "$NOW" -lt "$END" ]; then MINUTES=50; fi
+          STOP=$(( NOW + MINUTES * 60 ))
+          echo "Polling for $MINUTES minute(s)"
+          LATEST=site/results/2026-11-03/latest.json
+          upd() { node -e "try{console.log(require('./$LATEST').updatedAt||'')}catch{console.log('')}"; }
+          LAST_PUSH=0
+          while :; do
+            BEFORE=$(upd)
+            node scripts/fetch-results.mjs "$CONFIG" site/results || true
+            AFTER=$(upd)
+            # Pages rebuilds on every push (soft limit ~10/hour), so push when
+            # the numbers change, or as a heartbeat every 10 minutes.
+            PUSH=0
+            [ "$BEFORE" != "$AFTER" ] && PUSH=1
+            [ $(( $(date +%s) - LAST_PUSH )) -ge 600 ] && PUSH=1
+            cd site
+            git add -A results
+            if [ "$PUSH" = "1" ] && ! git diff --cached --quiet; then
+              LAST_PUSH=$(date +%s)
+              git commit -q -m "Results update $(date -u +%H:%M:%SZ)"
+              for i in 1 2 3; do
+                git pull -q --rebase -X theirs origin gh-pages 2>/dev/null || true
+                git push -q origin HEAD:gh-pages && break
+                sleep 5
+              done
+            fi
+            cd ..
+            [ "$(date +%s)" -lt "$STOP" ] || break
+            sleep 60
+          done

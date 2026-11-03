@@ -1,0 +1,33 @@
+{
+  "id": "2026-11-03",
+  "name": "November 3, 2026 General Election",
+  "pollsClose": "2026-11-04T00:30:00Z",
+  "liveWindow": { "start": "2026-11-03T23:00:00Z", "end": "2026-11-04T12:00:00Z" },
+  "sources": [
+    {
+      "id": "summit",
+      "type": "enhancedvoting",
+      "label": "Summit County Board of Elections",
+      "publicUrl": "https://app.enhancedvoting.com/results/public/Summit-County-OH/GE2026",
+      "jsonUrls": [
+        "https://app.enhancedvoting.com/cdn/results/Summit-County-OH/export-GE2026.json",
+        "https://app.enhancedvoting.com/cdn/results/Summit-County-OH/export-GE112026.json",
+        "https://app.enhancedvoting.com/cdn/results/Summit-County-OH/export-General2026.json",
+        "https://app.enhancedvoting.com/cdn/results/Summit-County-OH/export-11032026GeneralElection.json",
+        "https://app.enhancedvoting.com/cdn/results/Summit-County-OH/export-GE11032026.json",
+        "https://app.enhancedvoting.com/cdn/results/Summit-OH/export-GE2026.json"
+      ]
+    }
+  ],
+  "localities": [
+    {
+      "id": "twinsburg",
+      "label": "City of Twinsburg",
+      "precinctPattern": "^\\s*TWINSBURG(?!\\s*(TWP|TOWNSHIP))",
+      "precinctFlags": "i"
+    }
+  ],
+  "statewideLinks": [
+    { "label": "Ohio Secretary of State live results (statewide totals)", "href": "https://liveresults.ohiosos.gov/" }
+  ]
+}
