@@ -12,16 +12,15 @@ const show = (label, r, n = 400) => console.log(`\n### ${label}: ${r.status} ${r
 const base = "https://app.enhancedvoting.com";
 const page = await get(`${base}/results/public/Summit-County-OH/GE2026`);
 show("public page", page, 3000);
-const scripts = [...page.text.matchAll(/src="([^"]+\.js[^"]*)"/g)].map((m) => new URL(m[1], base).href);
+const scripts = [...page.text.matchAll(/src="([^"]+\.js[^"]*)"/g)].map((m) => new URL(m[1], base + "/results/public/").href);
 console.log("scripts:", scripts);
 for (const s of scripts) {
   const js = await get(s);
   const hits = new Set();
-  for (const m of js.text.matchAll(/["'`]([^"'`]*(?:api|cdn|results|export)[^"'`]{0,120})["'`]/gi)) {
-    if (m[1].length < 160 && /\//.test(m[1])) hits.add(m[1]);
-  }
+  for (const m of js.text.matchAll(/["'`]([^"'`\n]{0,80}(?:api\/|cdn\/|export|\/elections|ballotItems)[^"'`\n]{0,120})["'`]/gi)) hits.add(m[1]);
+  for (const m of js.text.matchAll(/.{0,120}(?:\/api\/|cdn\/results).{0,160}/g)) hits.add("CTX: " + m[0]);
   console.log(`\n### strings in ${s} (${js.text.length} bytes)`);
-  console.log([...hits].slice(0, 300).join("\n"));
+  console.log([...hits].slice(0, 120).join("\n"));
 }
 for (const u of [
   `${base}/cdn/results/Cuyahoga-County-OH/export-GE2026.json`,
