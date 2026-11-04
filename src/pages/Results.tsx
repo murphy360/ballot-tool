@@ -11,6 +11,50 @@ const timeFmt = new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-d
 const dateTimeFmt = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
 const when = (iso?: string | null) => (iso ? dateTimeFmt.format(new Date(iso)) + " ET" : "—");
 
+const STATEWIDE_URL = `${import.meta.env.BASE_URL}manual/${election.id}/statewide.json`;
+interface Manual { updatedAt: string | null; source: string | null; sourceUrl: string | null;
+  races: Record<string, { reporting?: string; called?: string; options: { name: string; party?: string; votes: number }[] }> }
+function useStatewide() {
+  const [m, setM] = useState<Manual | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const load = () => fetch(STATEWIDE_URL + "?t=" + Date.now(), { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((j) => alive && setM(j)).catch(() => {});
+    load(); const t = setInterval(load, REFRESH_MS);
+    return () => { alive = false; clearInterval(t); };
+  }, []);
+  return m;
+}
+
+function StatewideBlock({ race, manual }: { race: Race; manual: Manual | null }) {
+  const label = race.scope === "statewide" ? "Ohio statewide total" : "Full district total";
+  const entry = manual?.races?.[race.id];
+  if (!entry || !entry.options?.length) {
+    return (
+      <div className="block statewide">
+        <div className="block-h">{label}</div>
+        <div className="small">
+          Summit County's feed doesn't include the {race.scope === "statewide" ? "statewide" : "district-wide"} count.{" "}
+          <a className="sw-link" href="https://liveresults.ohiosos.gov/" target="_blank" rel="noopener noreferrer">See {race.scope === "statewide" ? "statewide" : "district"} results at the Ohio Secretary of State ↗</a>
+        </div>
+      </div>
+    );
+  }
+  const options = entry.options.map((o, i) => ({ id: "m" + i, name: o.name, party: o.party || "", votes: o.votes, groups: {} }));
+  const pseudo = { id: "m-" + race.id, name: race.title, type: "", voteFor: race.voteFor || 1, order: 0, precinctsReporting: 0, precinctsParticipating: 0, options, local: {} };
+  return (
+    <div className="block statewide">
+      <div className="block-h">{label}</div>
+      {entry.reporting && <div className="reporting">{entry.reporting}</div>}
+      {entry.called && <div className="called">Projected winner: {entry.called}</div>}
+      <Bars options={options} votes={(o) => o.votes} voteFor={race.voteFor || 1} race={race} contest={pseudo} final={false} />
+      <div className="muted small">
+        Entered by hand{manual?.source ? <> from {manual.sourceUrl ? <a href={manual.sourceUrl} target="_blank" rel="noopener noreferrer">{manual.source}</a> : manual.source}</> : null}
+        {manual?.updatedAt ? <>, as of {when(manual.updatedAt)}</> : null}. Not live.
+      </div>
+    </div>
+  );
+}
+
 function useResults() {
   const [data, setData] = useState<RLatest | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -103,7 +147,7 @@ function titleCase(s: string) {
   return s.toLowerCase().replace(/\b([a-z])/g, (m) => m.toUpperCase()).replace(/\bMc([a-z])/g, (_m, c) => "Mc" + c.toUpperCase());
 }
 
-function ContestCard({ race, contest, locality, title, localFirst = false }: { race?: Race; contest: RContest; locality?: Locality; title?: string; localFirst?: boolean }) {
+function ContestCard({ race, contest, locality, title, localFirst = false, manual = null }: { race?: Race; contest: RContest; locality?: Locality; title?: string; localFirst?: boolean; manual?: Manual | null }) {
   const loc = locality?.resultsLocality ? contest.local?.[locality.resultsLocality] : undefined;
   const countyDone = contest.precinctsParticipating > 0 && contest.precinctsReporting >= contest.precinctsParticipating;
   const scope = race?.scope;
@@ -116,6 +160,7 @@ function ContestCard({ race, contest, locality, title, localFirst = false }: { r
         {race?.guideAnchor && <a className="small" href={`#/guide?s=${race.guideAnchor}`}>About this race</a>}
       </div>
       {scope && <div className={"scope-note scope-" + scope}>{SCOPE_NOTE[scope]}</div>}
+      {race && (scope === "statewide" || scope === "multi-county") && <StatewideBlock race={race} manual={manual} />}
       {(() => {
         const total = (
           <div className="block">
@@ -188,6 +233,7 @@ function Status({ data, loadedAt, error }: { data: RLatest | null; loadedAt: Dat
 
 export default function Results() {
   const { data, error, loadedAt } = useResults();
+  const manual = useStatewide();
   const locality = election.localities[0];
   const [view, setView] = useState<"ballot" | "all">("ballot");
   const [q, setQ] = useState("");
@@ -228,7 +274,7 @@ export default function Results() {
             return (
               <section key={g}>
                 <h2>{g}</h2>
-                {items.map(({ race, contest }) => <ContestCard key={race.id} race={race} contest={contest!} locality={locality} />)}
+                {items.map(({ race, contest }) => <ContestCard key={race.id} race={race} contest={contest!} locality={locality} manual={manual} />)}
               </section>
             );
           })}

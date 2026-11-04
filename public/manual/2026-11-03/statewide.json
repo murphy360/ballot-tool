@@ -1,0 +1,7 @@
+{
+  "_help": "Statewide / full-district totals entered by hand. Fill a race to show it on the results page. Keys are race ids from src/data/2026-11-03.ts (us-senate, governor, attorney-general, secretary-of-state, auditor, treasurer, supreme-court-1, supreme-court-2, issue-3, us-house-13, oh-senate-27, oh-house-35, appeals-9-full, appeals-9-unexpired). Example: \"us-senate\": { \"reporting\": \"85% of expected vote\", \"called\": \"Sherrod Brown (AP)\", \"options\": [ { \"name\": \"Sherrod Brown\", \"party\": \"D\", \"votes\": 1234567 } ] }",
+  "updatedAt": null,
+  "source": null,
+  "sourceUrl": null,
+  "races": {}
+}
