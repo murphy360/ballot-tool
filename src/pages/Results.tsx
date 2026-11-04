@@ -103,7 +103,7 @@ function titleCase(s: string) {
   return s.toLowerCase().replace(/\b([a-z])/g, (m) => m.toUpperCase()).replace(/\bMc([a-z])/g, (_m, c) => "Mc" + c.toUpperCase());
 }
 
-function ContestCard({ race, contest, locality, title, showLocal = false }: { race?: Race; contest: RContest; locality?: Locality; title?: string; showLocal?: boolean }) {
+function ContestCard({ race, contest, locality, title, localFirst = false }: { race?: Race; contest: RContest; locality?: Locality; title?: string; localFirst?: boolean }) {
   const loc = locality?.resultsLocality ? contest.local?.[locality.resultsLocality] : undefined;
   const countyDone = contest.precinctsParticipating > 0 && contest.precinctsReporting >= contest.precinctsParticipating;
   const scope = race?.scope;
@@ -116,19 +116,39 @@ function ContestCard({ race, contest, locality, title, showLocal = false }: { ra
         {race?.guideAnchor && <a className="small" href={`#/guide?s=${race.guideAnchor}`}>About this race</a>}
       </div>
       {scope && <div className={"scope-note scope-" + scope}>{SCOPE_NOTE[scope]}</div>}
-      {loc && showLocal ? (
-        <>
-          <div className="reporting">{locality!.label} precincts: {loc.reported} of {loc.precincts} reporting{loc.complete < loc.precincts && loc.reported > 0 ? ` (${loc.complete} complete)` : ""}</div>
-          <Bars options={contest.options} votes={(o) => loc.votes[o.id] || 0} voteFor={contest.voteFor} race={race} contest={contest}
-            final={scope === "city" && loc.precincts > 0 && loc.complete >= loc.precincts && countyDone} />
-          <div className="muted small">Votes from Twinsburg's {loc.precincts} city precincts, including mail and early ballots cast by city voters.</div>
-        </>
-      ) : (
-        <>
-          <div className="reporting">Summit County precincts: {contest.precinctsReporting} of {contest.precinctsParticipating} reporting</div>
-          <Bars options={contest.options} votes={(o) => o.votes} voteFor={contest.voteFor} race={race} contest={contest} final={finalCounty && scope === "county"} />
-        </>
-      )}
+      {(() => {
+        const total = (
+          <div className="block">
+            <div className="block-h">Summit County total</div>
+            <div className="reporting">{contest.precinctsReporting} of {contest.precinctsParticipating} precincts reporting</div>
+            <Bars options={contest.options} votes={(o) => o.votes} voteFor={contest.voteFor} race={race} contest={contest} final={finalCounty && scope === "county"} />
+          </div>
+        );
+        // A city-only question: the Twinsburg precincts ARE the total, so show it once.
+        if (!loc || scope === "city") {
+          if (loc && scope === "city") {
+            return (
+              <div className="block">
+                <div className="block-h">Total ({locality!.label})</div>
+                <div className="reporting">{loc.reported} of {loc.precincts} precincts reporting{loc.complete < loc.precincts && loc.reported > 0 ? ` (${loc.complete} complete)` : ""}</div>
+                <Bars options={contest.options} votes={(o) => o.votes} voteFor={contest.voteFor} race={race} contest={contest}
+                  final={loc.precincts > 0 && loc.complete >= loc.precincts && countyDone} />
+              </div>
+            );
+          }
+          return total;
+        }
+        return (
+          <div className={"blocks" + (localFirst ? " local-first" : "")}>
+            {total}
+            <div className="block">
+              <div className="block-h">{locality!.label}</div>
+              <div className="reporting">{loc.reported} of {loc.precincts} city precincts reporting{loc.complete < loc.precincts && loc.reported > 0 ? ` (${loc.complete} complete)` : ""}</div>
+              <Bars options={contest.options} votes={(o) => loc.votes[o.id] || 0} voteFor={contest.voteFor} race={race} contest={contest} final={false} />
+            </div>
+          </div>
+        );
+      })()}
       {contest.voteFor > 1 && <div className="muted small">Vote for up to {contest.voteFor}. The top {contest.voteFor} win.</div>}
     </div>
   );
@@ -171,7 +191,6 @@ export default function Results() {
   const locality = election.localities[0];
   const [view, setView] = useState<"ballot" | "all">("ballot");
   const [q, setQ] = useState("");
-  const [local, setLocal] = useState(true);
   const contests = data?.sources?.summit?.contests || [];
 
   const matched = useMemo(() => {
@@ -203,20 +222,13 @@ export default function Results() {
               Results will appear here automatically once the Summit County Board of Elections publishes its first update after polls close. This page checks every minute.
             </div>
           )}
-          {contests.length > 0 && (
-            <div className="seg">
-              <span className="small muted">Show votes from:</span>
-              <button className={local ? "on" : ""} onClick={() => setLocal(true)}>{locality.label}</button>
-              <button className={!local ? "on" : ""} onClick={() => setLocal(false)}>All of Summit County</button>
-            </div>
-          )}
           {contests.length > 0 && groups.map((g) => {
             const items = matched.filter((m) => m.race.group === g && m.contest);
             if (!items.length) return null;
             return (
               <section key={g}>
                 <h2>{g}</h2>
-                {items.map(({ race, contest }) => <ContestCard key={race.id} race={race} contest={contest!} locality={locality} showLocal={local} />)}
+                {items.map(({ race, contest }) => <ContestCard key={race.id} race={race} contest={contest!} locality={locality} />)}
               </section>
             );
           })}

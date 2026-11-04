@@ -154,3 +154,10 @@ main { max-width: 780px; margin: 0 auto; padding: 12px 16px 40px; }
   .topbar nav a { padding: 6px 7px; font-size: 0.88rem; }
   .seg { top: 46px; }
 }
+
+.blocks { display: grid; gap: 14px; margin-top: 8px; }
+.blocks.local-first .block:last-child { order: -1; }
+@media (min-width: 700px) { .blocks { grid-template-columns: 1fr 1fr; gap: 20px; } }
+.block-h { font-size: 0.78rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin-top: 6px; }
+.blocks .block + .block { border-top: 1px dashed var(--line); padding-top: 10px; }
+@media (min-width: 700px) { .blocks .block + .block { border-top: 0; padding-top: 0; border-left: 1px dashed var(--line); padding-left: 20px; } }
