@@ -79,18 +79,18 @@ jobs:
             PUSH=0
             [ "$BEFORE" != "$AFTER" ] && PUSH=1
             [ $(( $(date +%s) - LAST_PUSH )) -ge 600 ] && PUSH=1
-            cd site
+            cd site || exit 1
             git add -A results
             if [ "$PUSH" = "1" ] && ! git diff --cached --quiet; then
               LAST_PUSH=$(date +%s)
               git commit -q -m "Results update $(date -u +%H:%M:%SZ)"
-              for i in 1 2 3; do
+              for _ in 1 2 3; do
                 git pull -q --rebase -X theirs origin gh-pages 2>/dev/null || true
                 git push -q origin HEAD:gh-pages && break
                 sleep 5
               done
             fi
-            cd ..
+            cd .. || exit 1
             [ "$(date +%s)" -lt "$STOP" ] || break
             sleep 60
           done
